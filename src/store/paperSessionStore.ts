@@ -987,6 +987,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
           const newState = { currentQuestionIndex: index, visitedQuestions: newVisitedQuestions };
           return newState;
         });
+        get().schedulePersist(); // Persist so server has latest position for cross-device / after clear
       },
       
       incrementTime: (questionIndex) => {
