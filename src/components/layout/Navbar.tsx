@@ -76,6 +76,7 @@ export function Navbar() {
     allRoutes.forEach((route, index) => {
       setTimeout(() => router.prefetch(route), index * 5);
     });
+    router.prefetch("/pricing");
   }, [router]);
 
   const handleMouseDown = useCallback(
@@ -192,6 +193,12 @@ export function Navbar() {
             )}
 
             <div className="flex items-center gap-2">
+              <Link
+                href="/pricing"
+                className="text-sm font-medium text-text-muted hover:text-primary transition-colors px-2"
+              >
+                Pricing
+              </Link>
               {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}

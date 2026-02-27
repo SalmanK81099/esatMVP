@@ -26,6 +26,7 @@
     "date-fns": "^3.3.0",
     "framer-motion": "^11.0.0",
     "function-plot": "^1.25.1",
+    "katex": "^0.16.11",
     "lucide-react": "^0.344.0",
     "mafs": "^0.21.0",
     "next": "14.2.0",
@@ -38,9 +39,9 @@
     "react-is": "^19.2.0",
     "react-pdf": "^10.2.0",
     "recharts": "^3.2.1",
+    "stripe": "^20.4.0",
     "tesseract.js": "^6.0.1",
-    "zustand": "^4.5.7",
-    "katex": "^0.16.11"
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",

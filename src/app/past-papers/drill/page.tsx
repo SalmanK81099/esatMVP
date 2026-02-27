@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { BookOpen } from "lucide-react";
+import { SubscriptionGate } from "@/components/subscription/SubscriptionGate";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Container } from "@/components/layout/Container";
@@ -22,7 +23,7 @@ interface DrillItem {
   correctChoice: string;
 }
 
-export default function PapersDrillPage() {
+function PapersDrillContent() {
   const [selectedPaper, setSelectedPaper] = useState("ESAT");
   const [currentQuestion, setCurrentQuestion] = useState<DrillItem | null>(null);
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
@@ -249,3 +250,10 @@ export default function PapersDrillPage() {
   );
 }
 
+export default function PapersDrillPage() {
+  return (
+    <SubscriptionGate feature="drill">
+      <PapersDrillContent />
+    </SubscriptionGate>
+  );
+}
