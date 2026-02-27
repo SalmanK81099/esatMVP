@@ -114,6 +114,7 @@ nocalcMVP2_real/
 ## Documentation
 
 - **[Documentation Index](docs/README.md)** - Overview of all documentation
+- **[Stripe Setup](docs/STRIPE_SETUP.md)** - Payment integration, subscriptions, and setup
 - **[Deployment Guide](docs/guides/DEPLOYMENT_GUIDE.md)** - How to deploy the application
 - **[Security Guide](docs/guides/SECURITY_HANDOVER_GUIDE.md)** - Security best practices
 - **[Configuration Guides](docs/guides/)** - Colors, branding, and other configurations
