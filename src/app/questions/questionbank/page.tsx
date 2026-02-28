@@ -98,7 +98,7 @@ export default function QuestionBankPage() {
   const [currentSelection, setCurrentSelection] = useState<string | null>(null);
   const [incorrectAnswers, setIncorrectAnswers] = useState<Set<string>>(new Set());
   
-  // Progress tracking state
+  // Progress tracking state - synced with active filters for accurate "X out of Y" counts
   const [progressSubjects, setProgressSubjects] = useState<SubjectFilter[]>(['Math 1']);
   const [showProgressFilter, setShowProgressFilter] = useState(false);
   
@@ -136,17 +136,39 @@ export default function QuestionBankPage() {
     }
   }, [isSessionMode, updateCurrentQuestion]);
 
-  // Fetch progress stats
+  // Sync progressSubjects with active filters so "X out of Y" matches the question pool
   useEffect(() => {
-    const fetchProgressStats = async () => {
-      if (progressSubjects.length === 0) {
-        setProgressStats(null);
-        return;
-      }
+    const subj = filters.subject;
+    let subjects: SubjectFilter[];
+    if (Array.isArray(subj) && subj.length > 0) {
+      subjects = subj;
+    } else if (subj && subj !== 'All') {
+      subjects = [subj];
+    } else {
+      subjects = filters.testType === 'TMUA'
+        ? ['Paper 1', 'Paper 2']
+        : filters.testType === 'ESAT'
+          ? ['Math 1', 'Math 2', 'Physics', 'Chemistry', 'Biology']
+          : ['Math 1', 'Math 2', 'Physics', 'Chemistry', 'Biology', 'Paper 1', 'Paper 2'];
+    }
+    setProgressSubjects(subjects);
+  }, [filters.subject, filters.testType]);
 
+  // Fetch progress stats (debounced on isAnswered to avoid rapid refetches)
+  useEffect(() => {
+    if (progressSubjects.length === 0) {
+      setProgressStats(null);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.append('subjects', progressSubjects.join(','));
+    if (filters.testType && filters.testType !== 'All') {
+      params.append('testType', filters.testType);
+    }
+
+    const fetchProgressStats = async () => {
       try {
-        const params = new URLSearchParams();
-        params.append('subjects', progressSubjects.join(','));
         const response = await fetch(`/api/question-bank/progress?${params.toString()}`);
         
         if (response.ok) {
@@ -156,16 +178,18 @@ export default function QuestionBankPage() {
             total: data.total || 0
           });
         } else {
-          // Fallback
           const totalParams = new URLSearchParams();
           totalParams.append('subject', progressSubjects.join(','));
           totalParams.append('limit', '1');
+          if (filters.testType && filters.testType !== 'All') {
+            totalParams.append('testType', filters.testType);
+          }
           const totalRes = await fetch(`/api/question-bank/questions?${totalParams.toString()}`);
           if (totalRes.ok) {
             const totalData = await totalRes.json();
             setProgressStats({
               attempted: 0,
-              total: totalData.totalCount || totalData.count || 0
+              total: totalData.totalCount ?? totalData.count ?? 0
             });
           }
         }
@@ -174,8 +198,10 @@ export default function QuestionBankPage() {
       }
     };
 
-    fetchProgressStats();
-  }, [progressSubjects, isAnswered]);
+    // Debounce 300ms to avoid rapid refetches when user answers multiple questions quickly
+    const timeoutId = setTimeout(fetchProgressStats, 300);
+    return () => clearTimeout(timeoutId);
+  }, [progressSubjects, isAnswered, filters.testType]);
 
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
