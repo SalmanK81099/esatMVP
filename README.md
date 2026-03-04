@@ -110,6 +110,13 @@ nocalcMVP2_real/
 - **[Utility Scripts](scripts/utilities/README.md)** - One-off Python scripts for migrations and fixes
 - **[Backup Scripts](scripts/backup/)** - Database backup utilities
 
+## Recent Fixes
+
+### Authentication (Login/Logout)
+- **Fixed logout functionality**: Improved logout flow to properly clear session state and handle errors. Logout now waits for signOut to complete and uses a hard redirect to ensure all session data is cleared.
+- **Fixed login state detection**: Enhanced login page to check session state directly from Supabase, preventing issues where users couldn't login when already logged out due to stale session state.
+- **Improved error handling**: Added comprehensive error handling throughout the authentication flow for better reliability.
+
 ## Notes
 
 - The Papers Analytics page is currently a placeholder with mock data
