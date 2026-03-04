@@ -281,7 +281,8 @@ export function PaperColumn({
       };
       loadCompletionStatus();
     }
-  }, [availableSections, session?.user?.id, paper, loadingCompletion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadingCompletion intentionally excluded to prevent infinite loop (effect toggles it)
+  }, [availableSections, session?.user?.id, paper]);
 
   const handleAddPaperClick = () => {
     if (availableSections.length > 0) {

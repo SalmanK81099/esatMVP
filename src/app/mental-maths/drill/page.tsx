@@ -20,6 +20,7 @@ import { ArrowRight, ListOrdered, Clock, Calculator } from "lucide-react";
 import { SubjectCategories } from "@/components/builder/SubjectCategories";
 import { TopicFolders } from "@/components/builder/TopicFolders";
 import { DrillVariantsGrid } from "@/components/builder/DrillVariantsGrid";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type HighLevelCategory =
   | "arithmetic"
@@ -64,6 +65,10 @@ const QuizLoadingSkeleton = () => (
 
 export default function BuilderPage() {
   const allTopics = getAllTopics();
+  const { hasFullAccess } = useSubscription();
+  const topics = hasFullAccess
+    ? allTopics
+    : allTopics.filter((t) => t.id === "addition");
   const builder = useBuilderSession();
   const [selectedCategory, setSelectedCategory] = useState<HighLevelCategory | null>("arithmetic");
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
@@ -87,7 +92,7 @@ export default function BuilderPage() {
             {/* Column 2: Topic Folders (Operations-style) */}
             <Suspense fallback={<div className="w-80 rounded-2xl bg-surface-mid animate-pulse" />}>
               <TopicFolders
-                topics={allTopics}
+                topics={topics}
                 selectedCategory={selectedCategory}
                 selectedTopicId={selectedTopicId}
                 onSelectTopic={setSelectedTopicId}
@@ -104,6 +109,16 @@ export default function BuilderPage() {
                 onRemoveVariant={builder.removeTopicVariant}
               />
             </Suspense>
+            {!hasFullAccess && (
+              <div className="p-4 rounded-2xl bg-surface-subtle border border-border text-center">
+                <p className="text-sm text-text-muted mb-2">
+                  Free: Addition only. Upgrade for all mental maths modules.
+                </p>
+                <a href="/pricing" className="text-primary hover:underline text-sm font-medium">
+                  View plans
+                </a>
+              </div>
+            )}
           </div>
         </div>
 

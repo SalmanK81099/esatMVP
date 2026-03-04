@@ -47,6 +47,19 @@ Create a `.env.local` file with:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Stripe (for subscriptions)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# Stripe Price IDs (create in Dashboard)
+STRIPE_PRICE_WEEKLY=price_...
+STRIPE_PRICE_MONTHLY=price_...
+STRIPE_PRICE_SEASON_74=price_...
+STRIPE_PRICE_SEASON_84=price_...
+STRIPE_PRICE_SEASON_94=price_...
 ```
 
 ### Development
@@ -101,6 +114,7 @@ nocalcMVP2_real/
 ## Documentation
 
 - **[Documentation Index](docs/README.md)** - Overview of all documentation
+- **[Stripe Setup](docs/STRIPE_SETUP.md)** - Payment integration, subscriptions, and setup
 - **[Deployment Guide](docs/guides/DEPLOYMENT_GUIDE.md)** - How to deploy the application
 - **[Security Guide](docs/guides/SECURITY_HANDOVER_GUIDE.md)** - Security best practices
 - **[Configuration Guides](docs/guides/)** - Colors, branding, and other configurations

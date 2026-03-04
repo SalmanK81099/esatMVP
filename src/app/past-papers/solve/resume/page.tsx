@@ -107,7 +107,7 @@ export default function ResumePage() {
 
   const handleResume = async () => {
     await resumeSession();
-    router.push("/papers/solve");
+    router.push("/past-papers/solve");
   };
 
   const handleQuit = async () => {

@@ -87,7 +87,6 @@ export function QuestionLibraryGrid({
                 .map((a: any) => String(a.question_id))
             );
             setAttemptedQuestionIds(attemptedIds);
-            console.log('[QuestionLibraryGrid] Loaded attempted questions:', attemptedIds.size);
           }
         })
         .catch(err => {

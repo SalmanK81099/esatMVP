@@ -77,7 +77,8 @@ export default function PapersSolvePage() {
     getSectionRemainingTime,
     setSectionStartTime,
     updateTimerState,
-    sectionInstructionDeadline
+    sectionInstructionDeadline,
+    saveSessionToIndexedDB,
   } = usePaperSessionStore();
   
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -723,6 +724,10 @@ export default function PapersSolvePage() {
       setCurrentSectionIndex(nextSectionIndex);
       // Show section summary for next section (60 second timer)
       setSectionInstructionTimer(60);
+      // Persist to IndexedDB immediately so refresh on instruction page restores to this section
+      saveSessionToIndexedDB().catch((err) =>
+        console.warn('[solve] Failed to save session to IndexedDB after section transition', err)
+      );
       // Reset current question index to prepare for next section
       // The section summary will handle navigation to first question when user clicks Next
     }

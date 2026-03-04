@@ -188,34 +188,41 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Missing session id" }, { status: 400 });
   }
 
+  // Build partial update - only include fields that are explicitly provided.
+  // This ensures "quit session" (which sends only { id, endedAt }) updates only ended_at,
+  // avoiding overwriting NOT NULL columns (paper_name, question_start, etc.) with null.
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (payload.paperId !== undefined) updates.paper_id = payload.paperId ?? null;
+  if (payload.paperName !== undefined) updates.paper_name = payload.paperName;
+  if (payload.paperVariant !== undefined) updates.paper_variant = payload.paperVariant;
+  if (payload.sessionName !== undefined) updates.session_name = payload.sessionName;
+  if (payload.questionRange !== undefined) {
+    updates.question_start = payload.questionRange.start ?? null;
+    updates.question_end = payload.questionRange.end ?? null;
+  }
+  if (payload.selectedSections !== undefined) updates.selected_sections = payload.selectedSections ?? [];
+  if (payload.selectedPartIds !== undefined) updates.selected_part_ids = payload.selectedPartIds ?? [];
+  if (payload.questionOrder !== undefined) updates.question_order = payload.questionOrder ?? [];
+  if (payload.timeLimitMinutes !== undefined) updates.time_limit_minutes = payload.timeLimitMinutes;
+  if (payload.startedAt !== undefined) updates.started_at = toIso(payload.startedAt);
+  if (payload.endedAt !== undefined) updates.ended_at = toIso(payload.endedAt);
+  if (payload.deadlineAt !== undefined) updates.deadline_at = toIso(payload.deadlineAt);
+  if (payload.perQuestionSec !== undefined) updates.per_question_seconds = payload.perQuestionSec ?? [];
+  if (payload.answers !== undefined) updates.answers = payload.answers ?? [];
+  if (payload.correctFlags !== undefined) updates.correct_flags = payload.correctFlags ?? [];
+  if (payload.guessedFlags !== undefined) updates.guessed_flags = payload.guessedFlags ?? [];
+  if (payload.mistakeTags !== undefined) updates.mistake_tags = payload.mistakeTags ?? [];
+  if (payload.notes !== undefined) updates.notes = payload.notes ?? null;
+  if (payload.score !== undefined) updates.score = payload.score ?? null;
+  if (payload.predictedScore !== undefined) updates.predicted_score = payload.predictedScore ?? null;
+  if (payload.sectionPercentiles !== undefined) updates.section_percentiles = payload.sectionPercentiles ?? null;
+  if (payload.pinnedInsights !== undefined) updates.pinned_insights = payload.pinnedInsights ?? null;
+
   const { data, error } = await (supabase as any)
     .from("paper_sessions")
-    .update({
-      paper_id: payload.paperId ?? null,
-      paper_name: payload.paperName,
-      paper_variant: payload.paperVariant,
-      session_name: payload.sessionName,
-      question_start: payload.questionRange?.start ?? null,
-      question_end: payload.questionRange?.end ?? null,
-      selected_sections: payload.selectedSections ?? [],
-      selected_part_ids: payload.selectedPartIds ?? [],
-      question_order: payload.questionOrder ?? [],
-      time_limit_minutes: payload.timeLimitMinutes,
-      started_at: toIso(payload.startedAt),
-      ended_at: toIso(payload.endedAt),
-      deadline_at: toIso(payload.deadlineAt),
-      per_question_seconds: payload.perQuestionSec ?? [],
-      answers: payload.answers ?? [],
-      correct_flags: payload.correctFlags ?? [],
-      guessed_flags: payload.guessedFlags ?? [],
-      mistake_tags: payload.mistakeTags ?? [],
-      notes: payload.notes ?? null,
-      score: payload.score ?? null,
-      predicted_score: payload.predictedScore ?? null,
-      section_percentiles: payload.sectionPercentiles ?? null,
-      pinned_insights: payload.pinnedInsights ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updates)
     .eq("id", payload.id)
     .eq("user_id", session.user.id)
     .select("*")

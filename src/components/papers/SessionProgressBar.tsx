@@ -187,6 +187,14 @@ export function SessionProgressBar() {
       segments.push({ start: startPosition, end: endPosition });
     }
     
+    // When on instruction page for next section, fill the line up to the current section node
+    // so the bar animates to the next section instead of jumping back
+    if (isOnInstructionPage && currentSectionIndex > 0) {
+      const startPosition = ((currentSectionIndex - 1) / totalSections) * 100;
+      const endPosition = (currentSectionIndex / totalSections) * 100;
+      segments.push({ start: startPosition, end: endPosition });
+    }
+    
     // Add segment for current active section if it's being worked on
     // Show progress even when paused - displays where user left off
     const lastFilledIndex = filledNodes[filledNodes.length - 1];

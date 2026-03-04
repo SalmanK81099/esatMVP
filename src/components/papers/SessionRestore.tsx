@@ -100,7 +100,7 @@ export function SessionRestore() {
     };
 
     checkAndRestore();
-  }, [sessionId, isPaused, pathname, router, loadSessionFromIndexedDB, loadSessionFromDatabase, isRestoring, session?.user, justQuitSessionId, justQuitTimestamp]);
+  }, [sessionId, isPaused, pathname, router, loadSessionFromIndexedDB, loadSessionFromDatabase, session?.user, justQuitSessionId, justQuitTimestamp]);
 
   return null; // This component doesn't render anything
 }

@@ -15,6 +15,8 @@ export function useSessionActivity() {
   const {
     sessionId,
     isPaused,
+    currentQuestionIndex,
+    currentSectionIndex,
     updateLastActiveTimestamp,
     pauseSession,
     saveSessionToIndexedDB,
@@ -151,7 +153,7 @@ export function useSessionActivity() {
     };
   }, [sessionId, isPaused, updateActivity]);
 
-  // Auto-save on state changes (debounced)
+  // Auto-save on state changes (debounced) - including when user navigates between questions
   useEffect(() => {
     if (!sessionId || isPaused) return;
 
@@ -162,7 +164,7 @@ export function useSessionActivity() {
         clearTimeout(saveDebounceTimerRef.current);
       }
     };
-  }, [sessionId, isPaused, debouncedSave]);
+  }, [sessionId, isPaused, debouncedSave, currentQuestionIndex, currentSectionIndex]);
 
   // Cleanup on unmount
   useEffect(() => {

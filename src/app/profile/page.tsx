@@ -36,7 +36,8 @@ import {
   Moon,
   Edit3,
   X,
-  Check
+  Check,
+  CreditCard
 } from "lucide-react";
 import type { ExamType } from "@/lib/profile/countdown";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -818,6 +819,34 @@ export default function ProfilePage() {
                         >
                           <span>Change Password</span>
                           <Lock className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </SettingItem>
+
+                    <SettingItem 
+                      label="Subscription" 
+                      description="Manage your subscription and payment method"
+                    >
+                      <div className="flex gap-3">
+                        <div className="flex-1" />
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await fetch("/api/stripe/create-portal-link", {
+                                method: "POST",
+                              });
+                              const data = await res.json();
+                              if (data.url) window.location.href = data.url;
+                              else throw new Error(data.error ?? "Failed");
+                            } catch (err: unknown) {
+                              console.error(err);
+                              alert("Failed to open billing portal");
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-surface-neutral hover:bg-surface-elevated text-text hover:text-text-muted transition-all font-medium flex items-center gap-2"
+                        >
+                          <span>Manage subscription</span>
+                          <CreditCard className="w-4 h-4" />
                         </button>
                       </div>
                     </SettingItem>

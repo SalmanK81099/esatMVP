@@ -242,7 +242,11 @@ export async function findActiveSession(): Promise<{ sessionId: string; source: 
         } catch (checkError) {
           console.warn('[findActiveSession] Failed to verify session status:', checkError);
         }
-        return { sessionId: databaseSessionId, source: 'database' };
+        // Prefer IndexedDB when same session: it has full UI state (currentSectionIndex,
+        // sectionInstructionTimer, etc.). Database doesn't store section/instruction position,
+        // so restoring from DB would send user back to previous section if they're on the
+        // next section's instruction page.
+        return { sessionId: databaseSessionId, source: 'indexeddb' };
       } else {
         // Different sessions - prefer database (more authoritative)
         console.warn('[findActiveSession] Session mismatch:', {

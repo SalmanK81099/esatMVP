@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useSupabaseSession } from "@/components/auth/SupabaseSessionProvider";
+import { useSubscription } from "@/hooks/useSubscription";
+import { UpgradeCTA } from "@/components/subscription/UpgradeCTA";
 import {
   getRoadmapStages,
   getRoadmapStagesSync,
@@ -29,9 +31,12 @@ import { examNameToPaperType } from "@/lib/papers/paperConfig";
 import type { PaperSection, Question, Paper } from "@/types/papers";
 import type { RoadmapPart } from "@/lib/papers/roadmapConfig";
 
+const FREE_ROADMAP_ITEMS = 3;
+
 export default function PapersRoadmapPage() {
   const router = useRouter();
   const session = useSupabaseSession();
+  const { hasFullAccess } = useSubscription();
   const { startSession, loadQuestions, setQuestions } = usePaperSessionStore();
   const [stages, setStages] = useState<RoadmapStage[]>([]);
   const [unlockedStages, setUnlockedStages] = useState<Set<string>>(new Set());
@@ -548,14 +553,24 @@ export default function PapersRoadmapPage() {
     );
   }
 
+  // Limit to first N items for free users
+  const visibleStages = hasFullAccess ? stages : stages.slice(0, FREE_ROADMAP_ITEMS);
+  const visibleUnlocked = new Set(
+    visibleStages.map((s) => s.id).filter((id) => unlockedStages.has(id))
+  );
+  const visibleCurrentIndex =
+    currentStageIndex !== null && currentStageIndex < visibleStages.length
+      ? currentStageIndex
+      : 0;
+
   // Prepare timeline nodes data
-  const timelineNodes = stages.map((stage, index) => {
+  const timelineNodes = visibleStages.map((stage, index) => {
     const data = completionData.get(stage.id);
     const completedCount = data?.completed || 0;
     const totalCount = data?.total || stage.parts.length;
-    const isUnlocked = unlockedStages.has(stage.id);
+    const isUnlocked = visibleUnlocked.has(stage.id);
     const isCompleted = completedCount === totalCount && totalCount > 0;
-    const isCurrent = currentStageIndex === index;
+    const isCurrent = visibleCurrentIndex === index;
 
     return {
       stage,
@@ -578,9 +593,9 @@ export default function PapersRoadmapPage() {
 
       {/* Analytics Section - At the top */}
       <RoadmapAnalytics
-        stages={stages}
+        stages={visibleStages}
         completionData={completionData}
-        currentStageIndex={currentStageIndex}
+        currentStageIndex={visibleCurrentIndex}
       />
 
       {/* Two-column layout: Timeline (left) and Roadmap (right) */}
@@ -590,9 +605,9 @@ export default function PapersRoadmapPage() {
           <div className="w-[18%] flex-shrink-0 hidden lg:block">
             <div className="sticky top-8">
               <RoadmapTimeline
-                stages={stages}
+                stages={visibleStages}
                 nodePositions={nodePositions}
-                currentStageIndex={currentStageIndex ?? undefined}
+                currentStageIndex={visibleCurrentIndex ?? undefined}
               />
             </div>
           </div>
@@ -606,6 +621,11 @@ export default function PapersRoadmapPage() {
               onNodePositionsUpdate={handleNodePositionsUpdate}
               timelineNodePositions={nodePositions}
             />
+            {!hasFullAccess && (
+              <div className="mt-8">
+                <UpgradeCTA feature="the full roadmap" />
+              </div>
+            )}
           </div>
         </div>
       </div>

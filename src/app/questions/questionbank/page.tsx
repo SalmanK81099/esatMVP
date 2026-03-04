@@ -17,14 +17,50 @@ import { MathContent } from "@/components/shared/MathContent";
 import { SolutionModal } from "@/components/questionBank/SolutionModal";
 import { useQuestionBank } from "@/hooks/useQuestionBank";
 import { useQuestionEditor } from "@/hooks/useQuestionEditor";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useSupabaseSession } from "@/components/auth/SupabaseSessionProvider";
+import { UpgradeCTA } from "@/components/subscription/UpgradeCTA";
 import { ArrowRight, RotateCw, BookOpen, X, Settings, Pencil, Eye, AlertCircle, Filter, Lightbulb, Check } from "lucide-react";
 import type { QuestionBankQuestion, SubjectFilter } from "@/types/questionBank";
 import { cn, formatTime } from "@/lib/utils";
 
+const FREE_QUESTION_LIMIT = 10;
+const STORAGE_KEY = "qb_free_attempts";
+
+function getFreeAttemptsKey(userId: string | undefined): string {
+  return userId ? `${STORAGE_KEY}_${userId}` : STORAGE_KEY;
+}
+
 export default function QuestionBankPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const session = useSupabaseSession();
   const isSessionMode = searchParams.get('session') === 'true';
+  const { hasFullAccess } = useSubscription();
+  const [freeAttemptsUsed, setFreeAttemptsUsed] = useState(() => {
+    if (typeof window === "undefined") return 0;
+    const key = getFreeAttemptsKey(session?.user?.id);
+    const stored = localStorage.getItem(key);
+    return stored ? parseInt(stored, 10) : 0;
+  });
+
+  const isFreeLimitReached = !hasFullAccess && freeAttemptsUsed >= FREE_QUESTION_LIMIT;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = getFreeAttemptsKey(session?.user?.id);
+    const stored = localStorage.getItem(key);
+    setFreeAttemptsUsed(stored ? parseInt(stored, 10) : 0);
+  }, [session?.user?.id]);
+
+  const incrementFreeAttempts = () => {
+    if (!hasFullAccess) {
+      const next = freeAttemptsUsed + 1;
+      setFreeAttemptsUsed(next);
+      const key = getFreeAttemptsKey(session?.user?.id);
+      localStorage.setItem(key, String(next));
+    }
+  };
 
   const {
     currentQuestion,
@@ -62,7 +98,7 @@ export default function QuestionBankPage() {
   const [currentSelection, setCurrentSelection] = useState<string | null>(null);
   const [incorrectAnswers, setIncorrectAnswers] = useState<Set<string>>(new Set());
   
-  // Progress tracking state
+  // Progress tracking state - synced with active filters for accurate "X out of Y" counts
   const [progressSubjects, setProgressSubjects] = useState<SubjectFilter[]>(['Math 1']);
   const [showProgressFilter, setShowProgressFilter] = useState(false);
   
@@ -100,17 +136,39 @@ export default function QuestionBankPage() {
     }
   }, [isSessionMode, updateCurrentQuestion]);
 
-  // Fetch progress stats
+  // Sync progressSubjects with active filters so "X out of Y" matches the question pool
   useEffect(() => {
-    const fetchProgressStats = async () => {
-      if (progressSubjects.length === 0) {
-        setProgressStats(null);
-        return;
-      }
+    const subj = filters.subject;
+    let subjects: SubjectFilter[];
+    if (Array.isArray(subj) && subj.length > 0) {
+      subjects = subj;
+    } else if (subj && subj !== 'All') {
+      subjects = [subj];
+    } else {
+      subjects = filters.testType === 'TMUA'
+        ? ['Paper 1', 'Paper 2']
+        : filters.testType === 'ESAT'
+          ? ['Math 1', 'Math 2', 'Physics', 'Chemistry', 'Biology']
+          : ['Math 1', 'Math 2', 'Physics', 'Chemistry', 'Biology', 'Paper 1', 'Paper 2'];
+    }
+    setProgressSubjects(subjects);
+  }, [filters.subject, filters.testType]);
 
+  // Fetch progress stats (debounced on isAnswered to avoid rapid refetches)
+  useEffect(() => {
+    if (progressSubjects.length === 0) {
+      setProgressStats(null);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.append('subjects', progressSubjects.join(','));
+    if (filters.testType && filters.testType !== 'All') {
+      params.append('testType', filters.testType);
+    }
+
+    const fetchProgressStats = async () => {
       try {
-        const params = new URLSearchParams();
-        params.append('subjects', progressSubjects.join(','));
         const response = await fetch(`/api/question-bank/progress?${params.toString()}`);
         
         if (response.ok) {
@@ -120,16 +178,18 @@ export default function QuestionBankPage() {
             total: data.total || 0
           });
         } else {
-          // Fallback
           const totalParams = new URLSearchParams();
           totalParams.append('subject', progressSubjects.join(','));
           totalParams.append('limit', '1');
+          if (filters.testType && filters.testType !== 'All') {
+            totalParams.append('testType', filters.testType);
+          }
           const totalRes = await fetch(`/api/question-bank/questions?${totalParams.toString()}`);
           if (totalRes.ok) {
             const totalData = await totalRes.json();
             setProgressStats({
               attempted: 0,
-              total: totalData.totalCount || totalData.count || 0
+              total: totalData.totalCount ?? totalData.count ?? 0
             });
           }
         }
@@ -138,8 +198,10 @@ export default function QuestionBankPage() {
       }
     };
 
-    fetchProgressStats();
-  }, [progressSubjects, isAnswered]);
+    // Debounce 300ms to avoid rapid refetches when user answers multiple questions quickly
+    const timeoutId = setTimeout(fetchProgressStats, 300);
+    return () => clearTimeout(timeoutId);
+  }, [progressSubjects, isAnswered, filters.testType]);
 
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -564,22 +626,23 @@ export default function QuestionBankPage() {
 
   // Handle next question in session mode
   const handleNextQuestionInSession = async () => {
+    if (isFreeLimitReached) return;
     if (sessionMode && sessionQuestions.length > 0) {
       const nextIndex = sessionCurrentIndex + 1;
       if (nextIndex < sessionQuestions.length) {
         setSessionCurrentIndex(nextIndex);
         updateCurrentQuestion(sessionQuestions[nextIndex]);
       } else {
-        // Session complete
+        incrementFreeAttempts();
         setSessionMode(false);
         setSessionQuestions([]);
         setSessionCurrentIndex(0);
         setDeadline(null);
         setRemainingTime(null);
-        // Return to normal mode
         await nextQuestion();
       }
     } else {
+      incrementFreeAttempts();
       await nextQuestion();
     }
   };
@@ -589,6 +652,9 @@ export default function QuestionBankPage() {
       <div className="min-h-[calc(100vh-3.5rem)] py-8 pb-24">
       <Container size="lg">
         <div className="space-y-6">
+          {isFreeLimitReached && (
+            <UpgradeCTA feature="unlimited questions" />
+          )}
           {/* Session Progress Indicator */}
           {sessionMode && sessionQuestions.length > 0 && (
             <div className="bg-primary/10 rounded-organic-md p-4 border border-primary/20">
@@ -868,6 +934,7 @@ export default function QuestionBankPage() {
                 // Next Question Button - shown after answer is revealed or correct
                 <button
                   onClick={handleNextQuestionInSession}
+                  disabled={isFreeLimitReached}
                   className="px-6 py-3 rounded-organic-md bg-interview/40 hover:bg-interview/50 text-interview transition-all duration-fast ease-signature flex items-center gap-2 font-mono text-sm font-medium"
                   style={{
                     boxShadow: 'inset 0 -4px 0 rgba(0, 0, 0, 0.4), 0 6px 0 rgba(0, 0, 0, 0.6)'
@@ -880,11 +947,13 @@ export default function QuestionBankPage() {
                   }}
                 >
                   <span>
-                    {sessionMode && sessionCurrentIndex < sessionQuestions.length - 1
+                    {isFreeLimitReached
+                      ? "Upgrade to continue"
+                      : sessionMode && sessionCurrentIndex < sessionQuestions.length - 1
                       ? `Next (${sessionCurrentIndex + 1}/${sessionQuestions.length})`
                       : sessionMode
-                      ? 'Finish Session'
-                      : 'Next Question'}
+                      ? "Finish Session"
+                      : "Next Question"}
                   </span>
                   <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
                 </button>
@@ -918,25 +987,35 @@ export default function QuestionBankPage() {
               )}
 
                 {/* Right: Reveal Answer OR Explanation */}
-                {answerRevealed || (isAnswered && isCorrect) ? (
-                  // View Detailed Explanation Button - shown after Reveal Answer is pressed or when answer is correct
-                  <button
-                    onClick={() => setShowDetailedExplanation(true)}
-                    className="px-4 py-2.5 rounded-organic-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-fast ease-signature flex items-center gap-2 font-mono text-sm border border-white/10"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Explanation</span>
-                  </button>
-                ) : (
-                  // Reveal Answer Button - shown when wrong and not revealed
-                  (!isAnswered || (isAnswered && !isCorrect)) && (
+                {hasFullAccess ? (
+                  answerRevealed || (isAnswered && isCorrect) ? (
                     <button
-                      onClick={() => setAnswerRevealed(true)}
+                      onClick={() => setShowDetailedExplanation(true)}
                       className="px-4 py-2.5 rounded-organic-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-fast ease-signature flex items-center gap-2 font-mono text-sm border border-white/10"
                     >
-                      <Eye className="w-4 h-4" />
-                      <span>Reveal Answer</span>
+                      <BookOpen className="w-4 h-4" />
+                      <span>Explanation</span>
                     </button>
+                  ) : (
+                    (!isAnswered || (isAnswered && !isCorrect)) && (
+                      <button
+                        onClick={() => setAnswerRevealed(true)}
+                        className="px-4 py-2.5 rounded-organic-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white/90 transition-all duration-fast ease-signature flex items-center gap-2 font-mono text-sm border border-white/10"
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>Reveal Answer</span>
+                      </button>
+                    )
+                  )
+                ) : (
+                  (answerRevealed || isAnswered) && (
+                    <a
+                      href="/pricing"
+                      className="px-4 py-2.5 rounded-organic-md bg-primary/20 hover:bg-primary/30 text-primary transition-all duration-fast ease-signature flex items-center gap-2 font-mono text-sm border border-primary/30"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>Upgrade to view solutions</span>
+                    </a>
                   )
                 )}
               </div>

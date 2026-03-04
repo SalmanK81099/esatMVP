@@ -93,7 +93,8 @@ export function PaperRow({
       };
       loadCompletionStatus();
     }
-  }, [availableSections, session?.user?.id, paper, loadingCompletion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadingCompletion intentionally excluded to prevent infinite loop (effect toggles it)
+  }, [availableSections, session?.user?.id, paper]);
 
   const handleAddFullPaper = () => {
     if (availableSections.length > 0) {

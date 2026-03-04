@@ -781,7 +781,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
                   guessedFlags: Array.from({ length: actualQuestionCount }, (_, i) => currentState.guessedFlags[i] || false),
                   reviewFlags: Array.from({ length: actualQuestionCount }, (_, i) => currentState.reviewFlags?.[i] || false),
                   mistakeTags: Array.from({ length: actualQuestionCount }, (_, i) => (currentState.mistakeTags[i] || 'None') as MistakeTag),
-                  visitedQuestions: Array.from({ length: actualQuestionCount }, () => false),
+                  visitedQuestions: Array.from({ length: actualQuestionCount }, (_, i) => currentState.visitedQuestions?.[i] ?? false),
                   questionOrder: Array.from({ length: actualQuestionCount }, (_, i) => i + 1),
                   allSectionsQuestions,
                 });
@@ -794,10 +794,13 @@ export const usePaperSessionStore = create<PaperSessionState>()(
               if (finalState.allSectionsQuestions.length > 0) {
                 finalState.calculateSectionTimeLimits();
                 
-                // Initialize section instruction timer for first section if section mode is active
+                // Only show section instruction timer for a fresh start (section 0, no progress yet)
+                // Don't overwrite restored state when user was already past the intro
+                const hasProgress = (finalState.visitedQuestions?.some(Boolean)) || (finalState.currentQuestionIndex > 0);
                 if (finalState.selectedSections.length > 0 && 
                     finalState.currentSectionIndex === 0 && 
-                    (finalState.sectionInstructionTimer === null || finalState.sectionInstructionTimer === 0)) {
+                    (finalState.sectionInstructionTimer === null || finalState.sectionInstructionTimer === 0) &&
+                    !hasProgress) {
                   finalState.setSectionInstructionTimer(60);
                 }
               } else if (finalState.selectedSections.length > 0) {
@@ -984,6 +987,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
           const newState = { currentQuestionIndex: index, visitedQuestions: newVisitedQuestions };
           return newState;
         });
+        get().schedulePersist(); // Persist so server has latest position for cross-device / after clear
       },
       
       incrementTime: (questionIndex) => {
@@ -1284,8 +1288,14 @@ export const usePaperSessionStore = create<PaperSessionState>()(
               // Restore section index and calculate section time limits
               stateAfterLoad.calculateSectionTimeLimits();
               
-              // Set current section index
-              set({ currentSectionIndex: targetSectionIndex });
+              // Set current section index and clear instruction timer so user sees questions, not intro
+              set({
+                currentSectionIndex: targetSectionIndex,
+                sectionInstructionTimer: null,
+                sectionInstructionDeadline: null,
+                instructionTimerStartedAt: null,
+                currentPipelineState: "section",
+              });
             }
           }
         } catch (error) {
