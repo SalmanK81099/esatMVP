@@ -143,7 +143,7 @@ export default function QuestionBankPage() {
     if (Array.isArray(subj) && subj.length > 0) {
       subjects = subj;
     } else if (subj && subj !== 'All') {
-      subjects = [subj];
+      subjects = Array.isArray(subj) ? subj : [subj];
     } else {
       subjects = filters.testType === 'TMUA'
         ? ['Paper 1', 'Paper 2']
