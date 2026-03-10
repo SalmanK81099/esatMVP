@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Container } from '@/components/layout/Container';
@@ -34,7 +34,11 @@ import {
   Lightbulb,
   Check,
 } from 'lucide-react';
-import type { QuestionBankQuestion, SubjectFilter } from '@/types/questionBank';
+import type {
+  QuestionBankQuestion,
+  QuestionBankCommunityStats,
+  SubjectFilter,
+} from '@/types/questionBank';
 import { cn, formatTime } from '@/lib/utils';
 
 const FREE_QUESTION_LIMIT = 10;
@@ -122,6 +126,12 @@ export default function QuestionBankPage() {
     'Math 1',
   ]);
   const [showProgressFilter, setShowProgressFilter] = useState(false);
+
+  const [communityStatsByQuestionId, setCommunityStatsByQuestionId] = useState<
+    Record<string, QuestionBankCommunityStats>
+  >({});
+  const [communityStatsLoading, setCommunityStatsLoading] = useState(false);
+  const communityStatsFetchedRef = useRef<Set<string>>(new Set());
 
   const [progressStats, setProgressStats] = useState<{
     attempted: number;
@@ -300,6 +310,21 @@ export default function QuestionBankPage() {
     setShowDetailedExplanation(false);
     setCurrentSelection(null);
     setIncorrectAnswers(new Set());
+  }, [currentQuestion?.id]);
+
+  // Fetch community stats when current question changes (once per question id)
+  useEffect(() => {
+    const qId = currentQuestion?.id;
+    if (!qId || communityStatsFetchedRef.current.has(qId)) return;
+    communityStatsFetchedRef.current.add(qId);
+    setCommunityStatsLoading(true);
+    fetch(`/api/question-bank/questions/${qId}/community-stats`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load'))))
+      .then((data: QuestionBankCommunityStats) => {
+        setCommunityStatsByQuestionId((prev) => ({ ...prev, [data.questionId]: data }));
+      })
+      .catch(() => {})
+      .finally(() => setCommunityStatsLoading(false));
   }, [currentQuestion?.id]);
 
   // Timer effect - countdown for sessions, count-up for regular practice
@@ -982,6 +1007,102 @@ export default function QuestionBankPage() {
                   onIncorrectAnswersChange={setIncorrectAnswers}
                   isAuthenticated={!!session?.user}
                 />
+
+                {/* Community Stats */}
+                {(() => {
+                  const stats = currentQuestion
+                    ? communityStatsByQuestionId[currentQuestion.id]
+                    : null;
+                  if (!currentQuestion) return null;
+                  if (communityStatsLoading && stats == null) {
+                    return (
+                      <div className="py-3">
+                        <div className="text-xs text-white/50">
+                          Loading community stats...
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (!stats) return null;
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-medium text-white/60 uppercase tracking-wider">
+                          Community Stats
+                        </div>
+                        <div className="text-xs text-white/50">
+                          {stats.attempts} attempts
+                        </div>
+                      </div>
+                      {!stats.hasSufficientData ? (
+                        <div className="text-xs text-white/50 py-2">
+                          Not enough data yet
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between py-2">
+                            <div className="text-xs text-white/50">
+                              Average time
+                            </div>
+                            <div className="text-sm text-white/80 font-medium">
+                              {formatTime(
+                                Math.round(stats.avgTimeSeconds) * 1000,
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="text-xs text-white/50 mb-2">
+                              Answer distribution
+                            </div>
+                            <div className="space-y-1.5">
+                              {Object.keys(currentQuestion.options)
+                                .sort()
+                                .map((letter) => {
+                                  const percentage =
+                                    stats.optionPercentages[letter] ?? 0;
+                                  const isCorrectOption =
+                                    letter ===
+                                    (currentQuestion.correct_option || '').toUpperCase();
+                                  const isUserChoice =
+                                    isAnswered &&
+                                    letter ===
+                                      (selectedAnswer || '').toUpperCase();
+                                  return (
+                                    <div
+                                      key={letter}
+                                      className="flex items-center gap-3"
+                                    >
+                                      <div className="w-5 text-xs text-white/60 font-medium">
+                                        {letter}
+                                      </div>
+                                      <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full rounded-full transition-all duration-300"
+                                          style={{
+                                            width: `${Math.max(percentage, 0.5)}%`,
+                                            backgroundColor: isCorrectOption
+                                              ? '#6c9e69'
+                                              : isUserChoice
+                                                ? '#b89f5a'
+                                                : '#5a6370',
+                                          }}
+                                        />
+                                      </div>
+                                      <div className="w-10 text-xs text-white/50 text-right">
+                                        {percentage > 0
+                                          ? `${percentage.toFixed(0)}%`
+                                          : '—'}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Detailed Explanation Modal */}
                 {currentQuestion && (

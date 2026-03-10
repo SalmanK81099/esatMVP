@@ -2410,53 +2410,58 @@ export default function PapersMarkPage() {
                       <div className="text-xs text-neutral-500">{stats.attempts} attempts</div>
                     </div>
                     
-                    {/* Average Time */}
-                    <div className="flex items-center justify-between py-2">
-                      <div className="text-xs text-neutral-400">Average time</div>
-                      <div className="text-sm text-neutral-200 font-medium">
-                        {formatTime(Math.round(stats.avgTimeSeconds))}
-                      </div>
-                    </div>
-                    
-                    {/* Answer Distribution */}
-                    <div className="space-y-2">
-                      <div className="text-xs text-neutral-400 mb-2">Answer distribution</div>
-                      <div className="space-y-1.5">
-                        {LETTERS.map((letter) => {
-                          const percentage = stats.optionPercentages[letter] || 0;
-                          const count = stats.optionCounts[letter] || 0;
-                          const isCorrect = letter === (question?.answerLetter || "").toUpperCase();
-                          const isUserChoice = letter === (answers[selectedIndex]?.choice || "").toUpperCase();
-                          
-                          // Only show options that have some percentage or are the correct/user choice
-                          if (percentage === 0 && !isCorrect && !isUserChoice) {
-                            return null;
-                          }
-                          
-                          return (
-                            <div key={letter} className="flex items-center gap-3">
-                              <div className="w-5 text-xs text-neutral-300 font-medium">{letter}</div>
-                              <div className="flex-1 h-1.5 bg-neutral-800/50 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-300"
-                                  style={{
-                                    width: `${Math.max(percentage, 0.5)}%`,
-                                    backgroundColor: isCorrect
-                                      ? "#6c9e69"
-                                      : isUserChoice
-                                      ? "#b89f5a"
-                                      : "#5a6370",
-                                  }}
-                                />
-                              </div>
-                              <div className="w-10 text-xs text-neutral-400 text-right">
-                                {percentage > 0 ? `${percentage.toFixed(0)}%` : "—"}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    {!stats.hasSufficientData ? (
+                      <div className="text-xs text-neutral-500 py-2">Not enough data yet</div>
+                    ) : (
+                      <>
+                        {/* Average Time */}
+                        <div className="flex items-center justify-between py-2">
+                          <div className="text-xs text-neutral-400">Average time</div>
+                          <div className="text-sm text-neutral-200 font-medium">
+                            {formatTime(Math.round(stats.avgTimeSeconds))}
+                          </div>
+                        </div>
+                        
+                        {/* Answer Distribution */}
+                        <div className="space-y-2">
+                          <div className="text-xs text-neutral-400 mb-2">Answer distribution</div>
+                          <div className="space-y-1.5">
+                            {LETTERS.map((letter) => {
+                              const percentage = stats.optionPercentages[letter] || 0;
+                              const isCorrect = letter === (question?.answerLetter || "").toUpperCase();
+                              const isUserChoice = letter === (answers[selectedIndex]?.choice || "").toUpperCase();
+                              
+                              // Only show options that have some percentage or are the correct/user choice
+                              if (percentage === 0 && !isCorrect && !isUserChoice) {
+                                return null;
+                              }
+                              
+                              return (
+                                <div key={letter} className="flex items-center gap-3">
+                                  <div className="w-5 text-xs text-neutral-300 font-medium">{letter}</div>
+                                  <div className="flex-1 h-1.5 bg-neutral-800/50 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full rounded-full transition-all duration-300"
+                                      style={{
+                                        width: `${Math.max(percentage, 0.5)}%`,
+                                        backgroundColor: isCorrect
+                                          ? "#6c9e69"
+                                          : isUserChoice
+                                          ? "#b89f5a"
+                                          : "#5a6370",
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="w-10 text-xs text-neutral-400 text-right">
+                                    {percentage > 0 ? `${percentage.toFixed(0)}%` : "—"}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })()}

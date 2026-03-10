@@ -77,6 +77,15 @@ export interface QuestionFeedbackResponse {
   userDisliked?: boolean;
 }
 
-
+/** Response from GET /api/question-bank/questions/[id]/community-stats */
+export interface QuestionBankCommunityStats {
+  questionId: string;
+  attempts: number;
+  avgTimeSeconds: number;
+  correctPercentage: number;
+  optionCounts: Record<string, number>;
+  optionPercentages: Record<string, number>;
+  hasSufficientData: boolean;
+}
 
 
