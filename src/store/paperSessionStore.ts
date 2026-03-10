@@ -86,6 +86,7 @@ interface PaperSessionState {
   isRestoring: boolean; // Whether session is currently being restored from IndexedDB
   justQuitSessionId: string | null; // Session ID that was just quit (to prevent restoration)
   justQuitTimestamp: number | null; // Timestamp when session was quit (to prevent restoration for a short period)
+  isMarkingInfo: boolean; // Whether user is currently viewing the Marking Info page before final submission
   
   // Session notes
   notes: string;
@@ -156,6 +157,7 @@ interface PaperSessionState {
   resumeSession: () => void;
   saveSessionToIndexedDB: () => Promise<void>;
   loadSessionFromIndexedDB: (sessionId: string) => Promise<void>;
+  setIsMarkingInfo: (isMarkingInfo: boolean) => void;
 }
 
 const initialAnswer = (): Answer => ({
@@ -215,6 +217,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
       isRestoring: false,
       justQuitSessionId: null,
       justQuitTimestamp: null,
+      isMarkingInfo: false,
       
       notes: '',
       sessionPersistPromise: null,
@@ -354,6 +357,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
           sectionDeadlines: [],
           sectionStartTimes: [],
           sectionStarts: {},
+          isMarkingInfo: false,
         });
 
         const payload = {
@@ -1121,6 +1125,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
           persistTimer: null,
           sessionPersistPromise: null,
           pendingPersistQueue: [],
+          isMarkingInfo: false,
         });
         
         // Clear quit flag after a delay (5 seconds) to allow for any delayed restoration attempts
@@ -1264,6 +1269,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
             instructionTimerStartedAt: null,
             currentPipelineState: "section",
             allSectionsQuestions: [],
+            isMarkingInfo: false,
           });
 
           // Load questions if paperId is available
@@ -1922,6 +1928,11 @@ export const usePaperSessionStore = create<PaperSessionState>()(
         }
       },
       
+      setIsMarkingInfo: (isMarkingInfo: boolean) => {
+        set({ isMarkingInfo });
+        get().saveSessionToIndexedDB();
+      },
+
       saveSessionToIndexedDB: async () => {
         const state = get();
         if (!state.sessionId) return;
@@ -1966,6 +1977,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
             deadline: updatedState.deadline,
             notes: updatedState.notes,
             questions: updatedState.questions, // Store questions for resume
+            isMarkingInfo: updatedState.isMarkingInfo,
           };
           
           if (!updatedState.sessionId) return;
@@ -2024,6 +2036,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
             deadline: state.deadline,
             notes: state.notes || '',
             questions: state.questions || [],
+            isMarkingInfo: state.isMarkingInfo || false,
             questionsLoading: false,
             questionsError: null,
             lastActiveTimestamp: sessionData.lastActiveTimestamp,
@@ -2183,6 +2196,7 @@ export const usePaperSessionStore = create<PaperSessionState>()(
         isPaused: state.isPaused,
         pausedAt: state.pausedAt,
         notes: state.notes,
+        isMarkingInfo: state.isMarkingInfo,
       }),
     }
   )
