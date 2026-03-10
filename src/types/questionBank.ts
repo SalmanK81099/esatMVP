@@ -64,6 +64,18 @@ export interface QuestionBankStats {
   averageTime: number;
 }
 
+/** Response from GET /api/question-bank/questions/[id]/rating */
+export interface QuestionRatingResponse {
+  average: number;
+  count: number;
+  userRating?: number;
+}
+
+/** Response from GET /api/question-bank/questions/[id]/feedback */
+export interface QuestionFeedbackResponse {
+  dislikeCount: number;
+  userDisliked?: boolean;
+}
 
 
 

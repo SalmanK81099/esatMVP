@@ -798,6 +798,7 @@ export default function QuestionBankPage() {
                 getTopicTitle={getTopicTitle}
                 onSelectionChange={setCurrentSelection}
                 onIncorrectAnswersChange={setIncorrectAnswers}
+                isAuthenticated={!!session?.user}
               />
 
               {/* Detailed Explanation Modal */}

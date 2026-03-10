@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import type { QuestionBankQuestion } from "@/types/questionBank";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, XCircle, Pencil, Eye, ArrowRight, HelpCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Pencil, Eye, ArrowRight, HelpCircle, Star, ThumbsDown } from "lucide-react";
+import type { QuestionRatingResponse, QuestionFeedbackResponse } from "@/types/questionBank";
 
 interface QuestionCardProps {
   question: QuestionBankQuestion;
@@ -24,6 +25,8 @@ interface QuestionCardProps {
   getTopicTitle?: (tag: string) => string;
   onSelectionChange?: (selectedAnswer: string | null) => void;
   onIncorrectAnswersChange?: (incorrectAnswers: Set<string>) => void;
+  /** If false or undefined, rating/dislike actions show "Sign in to rate" / read-only. */
+  isAuthenticated?: boolean;
 }
 
 // Helper function to get subject color based on paper name
@@ -82,11 +85,20 @@ export function QuestionCard({
   getTopicTitle,
   onSelectionChange,
   onIncorrectAnswersChange,
+  isAuthenticated = false,
 }: QuestionCardProps) {
   const [hoveredOption, setHoveredOption] = useState<string | null>(null);
   const [localSelectedAnswer, setLocalSelectedAnswer] = useState<string | null>(null);
   const [revealedDistractors, setRevealedDistractors] = useState<Set<string>>(new Set());
   const [incorrectAnswers, setIncorrectAnswers] = useState<Set<string>>(new Set());
+
+  const [rating, setRating] = useState<QuestionRatingResponse | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(true);
+  const [feedback, setFeedback] = useState<QuestionFeedbackResponse | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [dislikeSubmitting, setDislikeSubmitting] = useState(false);
+  const [hoverStar, setHoverStar] = useState<number | null>(null);
 
   // Get option letters from the options object
   const optionLetters = Object.keys(question.options).sort();
@@ -117,6 +129,68 @@ export function QuestionCard({
       });
     }
   }, [isAnswered, isCorrect, selectedAnswer, onIncorrectAnswersChange]);
+
+  const questionId = question.id;
+
+  useEffect(() => {
+    if (!questionId) {
+      setRating(null);
+      setFeedback(null);
+      setRatingLoading(false);
+      setFeedbackLoading(false);
+      return;
+    }
+    setRatingLoading(true);
+    setFeedbackLoading(true);
+    const ratingAbort = new AbortController();
+    const feedbackAbort = new AbortController();
+    fetch(`/api/question-bank/questions/${questionId}/rating`, { signal: ratingAbort.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data: QuestionRatingResponse) => setRating(data))
+      .catch((e) => e.name !== "AbortError" && setRating({ average: 0, count: 0 }))
+      .finally(() => setRatingLoading(false));
+    fetch(`/api/question-bank/questions/${questionId}/feedback`, { signal: feedbackAbort.signal })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data: QuestionFeedbackResponse) => setFeedback(data))
+      .catch((e) => e.name !== "AbortError" && setFeedback({ dislikeCount: 0 }))
+      .finally(() => setFeedbackLoading(false));
+    return () => {
+      ratingAbort.abort();
+      feedbackAbort.abort();
+    };
+  }, [questionId]);
+
+  const handleRate = async (value: number) => {
+    if (!isAuthenticated || ratingSubmitting) return;
+    setRatingSubmitting(true);
+    try {
+      const res = await fetch(`/api/question-bank/questions/${questionId}/rating`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: value }),
+      });
+      if (res.ok) {
+        const data: QuestionRatingResponse = await res.json();
+        setRating(data);
+      }
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
+
+  const handleDislikeToggle = async () => {
+    if (!isAuthenticated || dislikeSubmitting) return;
+    setDislikeSubmitting(true);
+    try {
+      const res = await fetch(`/api/question-bank/questions/${questionId}/dislike`, { method: "POST" });
+      if (res.ok) {
+        const data: QuestionFeedbackResponse = await res.json();
+        setFeedback(data);
+      }
+    } finally {
+      setDislikeSubmitting(false);
+    }
+  };
 
   // Notify parent when incorrect answers change
   useEffect(() => {
@@ -395,6 +469,82 @@ export function QuestionCard({
             </div>
           );
         })}
+        </div>
+      </div>
+
+      {/* Community rating and dislike footer */}
+      <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-text-muted">Community:</span>
+          {ratingLoading ? (
+            <span className="text-xs text-text-muted">—</span>
+          ) : (
+            <>
+              <div className="flex items-center gap-0.5" role="group" aria-label="Difficulty rating">
+                {[1, 2, 3, 4, 5].map((value) => {
+                  const active = hoverStar !== null ? value <= hoverStar : (rating?.userRating ?? rating?.average ?? 0) >= value;
+                  const canRate = isAuthenticated && !ratingSubmitting;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={!canRate}
+                      onMouseEnter={() => setHoverStar(value)}
+                      onMouseLeave={() => setHoverStar(null)}
+                      onClick={() => canRate && handleRate(value)}
+                      className={cn(
+                        "p-0.5 rounded transition-colors",
+                        canRate && "hover:scale-110 cursor-pointer",
+                        !canRate && "cursor-default"
+                      )}
+                      title={isAuthenticated ? `Rate ${value} star${value === 1 ? "" : "s"}` : "Sign in to rate"}
+                    >
+                      <Star
+                        className={cn("w-4 h-4", active ? "fill-amber-400 text-amber-400" : "text-white/30")}
+                        strokeWidth={1.5}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-xs text-text-muted">
+                {rating?.count ? `${rating.average} (${rating.count})` : "Rate difficulty"}
+              </span>
+              {!isAuthenticated && (
+                <span className="text-xs text-text-muted">Sign in to rate</span>
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {feedbackLoading ? (
+            <span className="text-xs text-text-muted">0 found this unhelpful</span>
+          ) : (
+            <>
+              <span className="text-xs text-text-muted">
+                {feedback?.dislikeCount ?? 0} found this unhelpful
+              </span>
+              {isAuthenticated ? (
+                <button
+                  type="button"
+                  onClick={handleDislikeToggle}
+                  disabled={dislikeSubmitting}
+                  className={cn(
+                    "flex items-center gap-1 text-xs rounded-md px-2 py-1 transition-colors",
+                    feedback?.userDisliked
+                      ? "bg-red-500/20 text-red-300"
+                      : "text-text-muted hover:bg-white/10 hover:text-text"
+                  )}
+                  title={feedback?.userDisliked ? "Remove mark unhelpful" : "Mark unhelpful"}
+                >
+                  <ThumbsDown className={cn("w-3.5 h-3.5", feedback?.userDisliked && "fill-current")} />
+                  <span>{feedback?.userDisliked ? "Unhelpful" : "Mark unhelpful"}</span>
+                </button>
+              ) : (
+                <span className="text-xs text-text-muted">Sign in to mark unhelpful</span>
+              )}
+            </>
+          )}
         </div>
       </div>
 

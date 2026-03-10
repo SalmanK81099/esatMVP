@@ -496,6 +496,40 @@ export type QuestionChoiceStatsInsert = {
 };
 export type QuestionChoiceStatsUpdate = Partial<QuestionChoiceStatsRow>;
 
+// question_bank_ratings
+export type QuestionBankRatingRow = {
+  id: string;
+  question_id: string;
+  user_id: string;
+  rating: number;
+  created_at: string;
+  updated_at: string;
+};
+export type QuestionBankRatingInsert = {
+  id?: string;
+  question_id: string;
+  user_id: string;
+  rating: number;
+  created_at?: string;
+  updated_at?: string;
+};
+export type QuestionBankRatingUpdate = Partial<QuestionBankRatingRow>;
+
+// question_bank_dislikes
+export type QuestionBankDislikeRow = {
+  id: string;
+  question_id: string;
+  user_id: string;
+  created_at: string;
+};
+export type QuestionBankDislikeInsert = {
+  id?: string;
+  question_id: string;
+  user_id: string;
+  created_at?: string;
+};
+export type QuestionBankDislikeUpdate = Partial<QuestionBankDislikeRow>;
+
 export type Database = {
   public: {
     Tables: {
@@ -573,6 +607,16 @@ export type Database = {
         Row: QuestionChoiceStatsRow;
         Insert: QuestionChoiceStatsInsert;
         Update: QuestionChoiceStatsUpdate;
+      };
+      question_bank_ratings: {
+        Row: QuestionBankRatingRow;
+        Insert: QuestionBankRatingInsert;
+        Update: QuestionBankRatingUpdate;
+      };
+      question_bank_dislikes: {
+        Row: QuestionBankDislikeRow;
+        Insert: QuestionBankDislikeInsert;
+        Update: QuestionBankDislikeUpdate;
       };
     };
     Views: {
