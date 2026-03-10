@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Build count query - match questions API: count ALL questions (any status) that user can see
+    // Build count query - same filters as questions API (RLS controls visibility)
     let countQuery = supabase
       .from('ai_generated_questions')
       .select('id', { count: 'exact', head: true });
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     let attempted = 0;
 
     if (isAuthenticated) {
-      // Fetch question IDs (normalize to strings for consistent comparison)
+      // Fetch question IDs (same visibility as count - RLS applies)
       let idQuery = supabase
         .from('ai_generated_questions')
         .select('id');
@@ -85,20 +85,28 @@ export async function GET(request: NextRequest) {
         const questionIds = new Set((questions as { id: string }[]).map((q) => String(q.id)));
         const questionIdArray = Array.from(questionIds);
 
-        // Fetch attempts that match our question pool - filter in DB for reliability
-        const { data: attempts, error: attemptsError } = await supabase
-          .from('question_bank_attempts')
-          .select('question_id')
-          .eq('user_id', session!.user.id)
-          .in('question_id', questionIdArray);
+        // Chunk to avoid PostgREST URI length limit on .in() (e.g. 150 per request)
+        const CHUNK = 150;
+        const attemptedQuestionIds = new Set<string>();
+        for (let i = 0; i < questionIdArray.length; i += CHUNK) {
+          const chunk = questionIdArray.slice(i, i + CHUNK);
+          const { data: attempts, error: attemptsError } = await supabase
+            .from('question_bank_attempts')
+            .select('question_id')
+            .eq('user_id', session!.user.id)
+            .in('question_id', chunk);
 
-        if (!attemptsError && attempts) {
-          // Count unique questions attempted (user may have multiple attempts per question)
-          const attemptedQuestionIds = new Set(
-            (attempts as { question_id: string }[]).map((a) => String(a.question_id))
-          );
-          attempted = attemptedQuestionIds.size;
+          if (attemptsError) {
+            console.error('[Progress API] Attempts chunk error:', attemptsError);
+            break;
+          }
+          if (attempts) {
+            (attempts as { question_id: string }[]).forEach((a) =>
+              attemptedQuestionIds.add(String(a.question_id))
+            );
+          }
         }
+        attempted = attemptedQuestionIds.size;
       }
     }
 
@@ -110,9 +118,14 @@ export async function GET(request: NextRequest) {
       isAuthenticated,
     });
 
-    return NextResponse.json({
-      attempted,
-      total: total ?? 0,
+    const body = { attempted, total: total ?? 0 };
+    return new NextResponse(JSON.stringify(body), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      },
     });
   } catch (error) {
     console.error('[Progress API] Unexpected error:', error);

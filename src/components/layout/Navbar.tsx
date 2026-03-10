@@ -32,6 +32,7 @@ const papersNavItems = [
 const questionsNavItems = [
   { href: "/questions/questionbank", label: "Bank" },
   { href: "/questions/library", label: "Library" },
+  { href: "/questions/questionbank/drill", label: "Drill" },
 ];
 
 export function Navbar() {
@@ -71,6 +72,7 @@ export function Navbar() {
       "/past-papers/analytics",
       "/questions/questionbank",
       "/questions/library",
+      "/questions/questionbank/drill",
     ];
 
     allRoutes.forEach((route, index) => {
