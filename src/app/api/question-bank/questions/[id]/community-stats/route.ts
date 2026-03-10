@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import type { QuestionBankAttemptRow } from "@/lib/supabase/types";
 import type { QuestionBankCommunityStats } from "@/types/questionBank";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function GET(
       );
     }
 
-    const { data: rows, error } = await supabase
+    const { data, error } = await supabase
       .from("question_bank_attempts")
       .select("user_answer, time_spent_ms, is_correct")
       .eq("question_id", questionId);
@@ -54,13 +55,14 @@ export async function GET(
       );
     }
 
-    const attempts = (rows ?? []).length;
+    const rows = (data ?? []) as Pick<QuestionBankAttemptRow, "user_answer" | "time_spent_ms" | "is_correct">[];
+    const attempts = rows.length;
     const optionCounts: Record<string, number> = {};
     LETTERS.forEach((l) => (optionCounts[l] = 0));
     let timeSumMs = 0;
     let correctCount = 0;
 
-    for (const row of rows ?? []) {
+    for (const row of rows) {
       const letter = normalizeOption(row.user_answer ?? "");
       if (LETTERS.includes(letter)) optionCounts[letter] = (optionCounts[letter] ?? 0) + 1;
       if (row.time_spent_ms != null) timeSumMs += row.time_spent_ms;
